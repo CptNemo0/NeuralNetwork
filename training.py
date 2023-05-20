@@ -1,17 +1,13 @@
 import numpy as np
 import pandas as pd
 import time
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import Dataset
-
 import torchvision.transforms as transforms
-
 import warnings
-warnings.filterwarnings("ignore")
 
 class ToTensor(object):
     """Convert ndarrays in sample to Tensors."""
@@ -77,17 +73,16 @@ class CoordinatesCorrectionDataset(Dataset):
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()  
-        self.fc1 = nn.Linear(2, 16)
-        self.fc2 = nn.Linear(16, 16)
-        self.dropout = nn.Dropout(0.25)
-        self.fc3 = nn.Linear(16, 2)
+        self.fc1 = nn.Linear(2, 64)
+        self.fc2 = nn.Linear(64, 64)
+        self.fc3 = nn.Linear(64, 2)
+        
         
     def forward(self, x):
         x = self.fc1(x)
         x = F.relu(x)
         x = self.fc2(x)
         x = F.relu(x)
-        x = self.dropout(x)
         x = self.fc3(x)
         return x
     
@@ -100,7 +95,6 @@ def train(model, epoch, trainLoader, device, optimizer, loss_function):
         measured, targets = sample_batched['measured'], sample_batched['targets']
         measured, targets = measured.type(torch.float), targets.type(torch.float),
         measured, targets = measured.to(device), targets.to(device)
-        #print(measured)
         optimizer.zero_grad()
         output = model(measured)
         loss = loss_function(output, targets)
@@ -135,6 +129,7 @@ def validation(model, testLoader, device, loss_funciton):
     print()
 
 def main():
+    warnings.filterwarnings("ignore")
     print(torch.cuda.is_available())
     print(torch.cuda.get_device_name(0))
 
@@ -151,14 +146,14 @@ def main():
     val_x_max = max(validation_data[:,:1])
     val_y_max = max(validation_data[:,1:2])
 
-    EPOCHS = 100
+    EPOCHS = 280
     learning_rate = 0.1
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
     net = Net()
     net.to(device)
     
-    optimizer = optim.Adam(params = net.parameters(), lr = learning_rate)
+    optimizer = optim.Adagrad(params = net.parameters(), lr = learning_rate)
     loss_function = nn.MSELoss()
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer = optimizer, step_size = 50, gamma = 0.1)
 
