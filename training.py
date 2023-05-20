@@ -138,8 +138,8 @@ def main():
     print(torch.cuda.is_available())
     print(torch.cuda.get_device_name(0))
 
-    data = np.genfromtxt("C:\\Users\pawel\\Desktop\\Studia\AI\\ai2\\pomiary\\dataset\\data.csv", delimiter=",")
-    validation_data = np.genfromtxt("C:\\Users\pawel\\Desktop\\Studia\AI\\ai2\\pomiary\\dataset\\validation_data.csv", delimiter=",")
+    data = np.genfromtxt("dataset\\data.csv", delimiter=",")
+    validation_data = np.genfromtxt("dataset\\validation_data.csv", delimiter=",")
     
     x_min = min(data[:,:1])
     y_min = min(data[:,1:2])
@@ -165,8 +165,8 @@ def main():
     train_transform = transforms.Compose([Normalize(x_min, y_min, x_max, y_max), ToTensor()])
     validation_transform = transforms.Compose([Normalize(val_x_min, val_y_min, val_x_max, val_y_max), ToTensor()])
 
-    training_set = CoordinatesCorrectionDataset("C:\\Users\pawel\\Desktop\\Studia\AI\\ai2\\pomiary\\dataset\\data.csv", train_transform)
-    validation_set = CoordinatesCorrectionDataset("C:\\Users\pawel\\Desktop\\Studia\AI\\ai2\\pomiary\\dataset\\validation_data.csv", validation_transform)
+    training_set = CoordinatesCorrectionDataset("dataset\\data.csv", train_transform)
+    validation_set = CoordinatesCorrectionDataset("dataset\\validation_data.csv", validation_transform)
 
     train_loader = torch.utils.data.DataLoader(training_set, batch_size = 32, shuffle = True, num_workers=4)
     validation_loader = torch.utils.data.DataLoader(validation_set, batch_size = 8, shuffle = True, num_workers=4)
@@ -185,7 +185,7 @@ def main():
         output = "\tEpoch's time: {}, aprox time till the end: {}\n".format(et, (EPOCHS + 1 - epoch) * (sum(ets)/len(ets)))
         print(output)
     
-    modelPath = "C:\\Users\\pawel\\Desktop\\Studia\\AI\\ai2\\pomiary\\model2\\model.pt"
+    modelPath = "model2\\model.pt"
     device = torch.device('cpu')
     model_scripted = torch.jit.script(net) 
     model_scripted.save(modelPath) 
