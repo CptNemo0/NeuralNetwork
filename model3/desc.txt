@@ -1,0 +1,2 @@
+This model was saved using TorchScript. torch.jit.script
+This model takes in 5 parameteres. Data from accelerometr on X, Y, Z axes and it's X, Y coordinates. Returns 2 coordniates.

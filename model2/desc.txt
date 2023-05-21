@@ -1,0 +1,2 @@
+This model was saved using TorchScript. torch.jit.script
+This model takes 2 coordinates X and Y and returns them corrected. It works poorly.

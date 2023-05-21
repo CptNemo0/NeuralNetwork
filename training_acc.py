@@ -21,17 +21,17 @@ class ToTensor(object):
 class Normalize(object):
     """Normalize Input"""
 
-    def __init__(self, x_min, y_min, x_max, y_max):
-        self.x_min = x_min
-        self.y_min = y_min
-        self.x_max = x_max
-        self.y_max = y_max
+    def __init__(self, mean, std, mean2, std2):
+        self.mean = mean
+        self.std = std
+        self.mean2 = mean2
+        self.std2 = std2
 
-    def __call__(self, sample, ):
+    def __call__(self, sample):
         measured, target = sample['measured'], sample['targets']
         
-        measured[0] = (measured[0] - self.x_min) / (self.x_max - self.x_min)
-        measured[1] = (measured[1] - self.y_min) / (self.y_max - self.y_min)
+        measured = (measured - self.mean)/self.std
+        target = (target - self.mean2)/self.std2
         
         return {'measured': measured,
                 'targets': target}
@@ -57,10 +57,10 @@ class CoordinatesCorrectionDataset(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        measured = self.coordinates.iloc[idx, :2]
+        measured = self.coordinates.iloc[idx, :5]
         measured = np.array(measured)
 
-        targets = self.coordinates.iloc[idx, 2:]
+        targets = self.coordinates.iloc[idx, 5:]
         targets = np.array(targets)
         
         sample = {'measured': measured, 'targets': targets}
@@ -73,10 +73,11 @@ class CoordinatesCorrectionDataset(Dataset):
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()  
-        self.fc1 = nn.Linear(2, 64)
+        self.fc1 = nn.Linear(5,64)
         self.fc2 = nn.Linear(64, 64)
         self.fc3 = nn.Linear(64, 2)
-             
+        
+        
     def forward(self, x):
         x = self.fc1(x)
         x = F.relu(x)
@@ -123,8 +124,10 @@ def validation(model, testLoader, device, loss_funciton):
     test_loss = test_loss / amount
 
     print("\nValidation set:\n\tLoss: {:.5f}".format(test_loss))
-    print(tdo)
-    print(tdt)
+    print("output")
+    print(tdo[0])
+    print("targets")
+    print(tdt[0])
     print()
 
 def main():
@@ -132,41 +135,48 @@ def main():
     print(torch.cuda.is_available())
     print(torch.cuda.get_device_name(0))
 
-    data = np.genfromtxt("dataset\\data.csv", delimiter=",")
-    validation_data = np.genfromtxt("dataset\\validation_data.csv", delimiter=",")
-    
-    x_min = min(data[:,:1])
-    y_min = min(data[:,1:2])
-    x_max = max(data[:,:1])
-    y_max = max(data[:,1:2])
+    data = np.genfromtxt("dataset\\4x2acc\\training_data_acc.csv", delimiter=",")
+    validation_data = np.genfromtxt("dataset\\4x2acc\\validation_data_acc.csv", delimiter=",")
 
-    val_x_min = min(validation_data[:,:1])
-    val_y_min = min(validation_data[:,1:2])
-    val_x_max = max(validation_data[:,:1])
-    val_y_max = max(validation_data[:,1:2])
 
     EPOCHS = 280
-    learning_rate = 0.1
+    learning_rate = 0.18
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
     net = Net()
     net.to(device)
     
+    optimizer = optim.Adagrad(params = net.parameters(), lr = learning_rate, lr_decay = 0.00001)
     loss_function = nn.MSELoss()
-    optimizer = optim.Adagrad(params = net.parameters(), lr = learning_rate)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer = optimizer, step_size = 50, gamma = 0.1)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer = optimizer, step_size = 40, gamma = 0.1)
 
     train_transform = transforms.Compose([
-                                        Normalize(x_min, y_min, x_max, y_max), 
-                                        ToTensor()])
-    validation_transform = transforms.Compose([Normalize(val_x_min, val_y_min, val_x_max, val_y_max), ToTensor()])
+        Normalize(
+                
+                  mean = np.mean(data[:,:5], axis=0), 
+                  std = np.std(data[:,:5], axis=0), 
+                  mean2 = np.mean(data[:,5:], axis=0), 
+                  std2 = np.std(data[:,5:], axis=0),
+                ), 
+        ToTensor()
+        ])
+    
+    validation_transform = transforms.Compose([
+        Normalize(
+                mean = np.mean(validation_data[:,:5], axis=0), 
+                std = np.std(validation_data[:,:5], axis=0), 
+                mean2 = np.mean(validation_data[:,5:], axis=0), 
+                std2 = np.std(validation_data[:,5:], axis=0)
+                ), 
+        ToTensor()
+        ])
 
-    training_set = CoordinatesCorrectionDataset("dataset\\data.csv", train_transform)
-    validation_set = CoordinatesCorrectionDataset("dataset\\validation_data.csv", validation_transform)
+    training_set = CoordinatesCorrectionDataset("dataset\\4x2acc\\training_data_acc.csv", train_transform)
+    validation_set = CoordinatesCorrectionDataset("dataset\\4x2acc\\validation_data_acc.csv", validation_transform)
 
     train_loader = torch.utils.data.DataLoader(training_set, batch_size = 32, shuffle = True, num_workers=4)
-    validation_loader = torch.utils.data.DataLoader(validation_set, batch_size = 8, shuffle = True, num_workers=4)
-
+    validation_loader = torch.utils.data.DataLoader(validation_set, batch_size = 32, shuffle = True, num_workers=4)
+ 
     ets = []
     for epoch in range(1, EPOCHS + 1):
         start = time.perf_counter()
@@ -181,10 +191,10 @@ def main():
         output = "\tEpoch's time: {}, aprox time till the end: {}\n".format(et, (EPOCHS + 1 - epoch) * (sum(ets)/len(ets)))
         print(output)
     
-    modelPath = "model2\\model.pt"
+    modelPath = "model3\\model.pt"
     device = torch.device('cpu')
     model_scripted = torch.jit.script(net) 
     model_scripted.save(modelPath) 
-
+    
 if __name__ == "__main__":
     main()
